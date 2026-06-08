@@ -117,12 +117,29 @@ GITHUB_URL  = "https://github.com/mondi04/htmforge"
 
 # ── Demo-Beschreibung ─────────────────────────────────────
 DEMO_INTRO = {
-    "title":   "Live Demo — User Management",
+    "title":   "Live Demo — User & Order Management",
     "desc": (
         "Die folgende Admin-UI ist vollständig mit htmforge gebaut — "
-        "kein Jinja, keine .html-Dateien. Dashboard, Tabelle, Formulare: "
+        "kein Jinja, keine .html-Dateien. Dashboard, Tabellen, Formulare: "
         "alles Python-Funktionen, alles serverseitig gerendert."
     ),
     "url":     "/demo",
     "cta":     "Demo öffnen →",
+}
+
+# ── Impressum ─────────────────────────────────────────────
+IMPRESSUM = {
+    "name":       "Moritz Mond",
+    "strasse":    "Belchenstrasse 5",
+    "ort":        "79677, Aitern",
+    "email":      "kontakt@nepidesk.de",
+    "rechtsform": "Privatperson",
+}
+
+# ── Datenschutz ───────────────────────────────────────────
+DATENSCHUTZ = {
+    "verantwortlicher_name":  "Moritz Mond",
+    "verantwortlicher_email": "kontakt@nepidesk.de",
+    "hosting":                "Eigener Server (Self-hosted, Deutschland)",
+    "cloudflare":             True,
 }

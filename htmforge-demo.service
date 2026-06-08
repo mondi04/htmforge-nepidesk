@@ -1,0 +1,15 @@
+[Unit]
+Description=htmforge.nepidesk.de — Live Demo
+After=network.target
+
+[Service]
+Type=simple
+User=moritz
+WorkingDirectory=/opt/htmforge-nepidesk
+ExecStart=/opt/htmforge-nepidesk/venv/bin/gunicorn app:app -w 2 -b 127.0.0.1:5101
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

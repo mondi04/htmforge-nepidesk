@@ -6,7 +6,7 @@ Alle UI-Komponenten. Landing Page + Admin Demo.
 from htmforge import render
 from htmforge.elements import (
     div, span, a, p, h1, h2, h3, nav, header, footer,
-    main, section, form, input_, label, select, option,
+    main, section, form, input, label, select, option,
     script, link, meta, html, head, body, title,
     button, table, thead, tbody, tr, th, td, raw,
     textarea,
@@ -18,6 +18,7 @@ from data import (
     CONCEPTS, CODE_EXAMPLES,
     INSTALL_CMD, PYPI_URL, GITHUB_URL,
     DEMO_INTRO,
+    IMPRESSUM, DATENSCHUTZ,
 )
 
 
@@ -128,6 +129,12 @@ def build_footer():
             class_="footer-left",
         ),
         div(
+            a("Impressum", href="/impressum", class_="footer-link"),
+            span(" · ", class_="dim"),
+            a("Datenschutz", href="/datenschutz", class_="footer-link"),
+            class_="footer-center",
+        ),
+        div(
             a("PyPI ↗",    href=PYPI_URL,    target="_blank", rel="noopener", class_="footer-link"),
             span(" · ", class_="dim"),
             a("GitHub ↗",  href=GITHUB_URL,  target="_blank", rel="noopener", class_="footer-link"),
@@ -146,7 +153,7 @@ def _page(page_title: str, description: str, hdr, content, css_hash="", js_hash=
         _head(page_title, description, css_hash),
         body(
             hdr,
-            main(*content, class_="page-main"),
+            main(*content, class_="demo-page" if "demo" in page_title.lower() else "page-main"),
             build_footer(),
             script(src=f"/static/js/main.js?v={js_hash}", defer=True),
         ),
@@ -372,7 +379,7 @@ def _form_field(lbl: str, name: str, value: str = "", type_: str = "text",
                 required: bool = True, placeholder: str = ""):
     return div(
         label(lbl, for_=name, class_="field-label"),
-        input_(
+        input(
             type=type_, name=name, id=name,
             value=value, placeholder=placeholder,
             class_="field-input",
@@ -437,7 +444,7 @@ def stat_card(label, value, color):
                 class_="demo-page-head",
             ),
             div(*stat_cards, class_="stats-grid"),
-            class_="demo-section",
+            class_="demo-section-main",
         ),
         _code_aside(snippet, "Das Dashboard — 5 Stat-Cards, alle aus Python-Funktionen."),
     ]
@@ -464,9 +471,9 @@ def build_user_table(users, flash_msg: str = "", flash_kind: str = "success",
             td(
                 a("Edit", href=f"/demo/users/{u['id']}/edit", class_="tbl-btn"),
                 form(
-                    input_(type="hidden", name="_method", value="DELETE"),
+                    input(type="hidden", name="_method", value="DELETE"),
                     button("Delete", type="submit", class_="tbl-btn tbl-btn-danger",
-                           onclick=f"return confirm('User {u[\"name\"]} wirklich löschen?')"),
+                           onclick="return confirm('User " + u["name"] + " wirklich löschen?')"),
                     action=f"/demo/users/{u['id']}/delete", method="POST",
                 ),
                 class_="td td-actions",
@@ -505,7 +512,7 @@ return table(thead(...), tbody(*rows))"""
             ),
             # Suchfeld
             form(
-                input_(
+                input(
                     type="search", name="q", value=search,
                     placeholder="Name oder E-Mail suchen...",
                     class_="search-input",
@@ -649,6 +656,173 @@ def _escape(text: str) -> str:
             .replace("<", "&lt;")
             .replace(">", "&gt;"))
 
+
+# ── Impressum ────────────────────────────────────────────
+
+def build_impressum_page(css_hash="", js_hash=""):
+    imp = IMPRESSUM
+
+    def row(label: str, *children):
+        return div(
+            span(label, class_="legal-key"),
+            div(*children, class_="legal-val"),
+            class_="legal-row",
+        )
+
+    content = [
+        section(
+            div(
+                a("← Zurück", href="/", class_="back-link"),
+                class_="subpage-back",
+            ),
+            h1("Impressum", class_="legal-page-title"),
+            p("Angaben gemäß § 5 TMG", class_="legal-subtitle"),
+
+            # Verantwortlicher
+            div(
+                h2("Verantwortlicher", class_="legal-section-title"),
+                row("Name",         span(imp["name"],       class_="legal-text")),
+                row("Anschrift",    span(imp["strasse"],    class_="legal-text"),
+                                    span(imp["ort"],        class_="legal-text")),
+                row("Rechtsform",   span(imp["rechtsform"], class_="legal-text")),
+                row("E-Mail",       a(imp["email"], href=f"mailto:{imp['email']}", class_="legal-link")),
+                class_="legal-block",
+            ),
+
+            # Hinweis Steuernummer
+            div(
+                h2("Steuerliche Angaben", class_="legal-section-title"),
+                p(
+                    "Eine Umsatzsteuer-Identifikationsnummer liegt derzeit nicht vor. "
+                    "Umsatzsteuerbefreiung gemäß § 19 UStG (Kleinunternehmerregelung) "
+                    "wird bei Bedarf separat kommuniziert.",
+                    class_="legal-prose",
+                ),
+                class_="legal-block",
+            ),
+
+            # Streitschlichtung
+            div(
+                h2("Streitschlichtung", class_="legal-section-title"),
+                p(
+                    "Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: ",
+                    a("https://ec.europa.eu/consumers/odr",
+                      href="https://ec.europa.eu/consumers/odr",
+                      target="_blank", rel="noopener", class_="legal-link"),
+                    span(". Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren "
+                         "vor einer Verbraucherschlichtungsstelle teilzunehmen."),
+                    class_="legal-prose",
+                ),
+                class_="legal-block",
+            ),
+
+            # Haftung
+            div(
+                h2("Haftung für Inhalte", class_="legal-section-title"),
+                p(
+                    "Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten "
+                    "nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als "
+                    "Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde "
+                    "Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige "
+                    "Tätigkeit hinweisen.",
+                    class_="legal-prose",
+                ),
+                class_="legal-block",
+            ),
+
+            class_="legal-page section-block",
+        ),
+    ]
+    return _page_shell(
+        "Impressum", "Impressum — NepiDesk",
+        "", content, css_hash, js_hash,
+    )
+
+
+# ── Datenschutz ──────────────────────────────────────────
+
+def build_datenschutz_page(css_hash="", js_hash=""):
+    ds = DATENSCHUTZ
+
+    def block(title: str, *paras):
+        return div(
+            h2(title, class_="legal-section-title"),
+            *[p(text, class_="legal-prose") for text in paras],
+            class_="legal-block",
+        )
+
+    content = [
+        section(
+            div(
+                a("← Zurück", href="/", class_="back-link"),
+                class_="subpage-back",
+            ),
+            h1("Datenschutzerklärung", class_="legal-page-title"),
+            p("Zuletzt aktualisiert: Juni 2025", class_="legal-subtitle"),
+
+            block(
+                "1. Verantwortlicher",
+                f"Verantwortlich im Sinne der DSGVO: {ds['verantwortlicher_name']}, "
+                f"erreichbar unter {ds['verantwortlicher_email']}.",
+            ),
+
+            block(
+                "2. Welche Daten wir erheben",
+                "Diese Website erhebt keine personenbezogenen Daten durch Tracking, "
+                "Cookies oder Analyse-Tools. Es werden keine Cookies gesetzt.",
+                "Beim Aufruf der Website werden durch den Webserver technisch notwendige "
+                "Server-Logs gespeichert (IP-Adresse, Zeitstempel, aufgerufene URL, "
+                "HTTP-Statuscode, verwendeter Browser). Diese Daten dienen ausschließlich "
+                "der technischen Fehlerdiagnose und werden nach spätestens 7 Tagen gelöscht.",
+            ),
+
+            block(
+                "3. Hosting & Infrastruktur",
+                f"Die Website wird auf einem eigenen, privat betriebenen Server in Deutschland gehostet. "
+                "Es werden keine externen Hosting-Anbieter eingesetzt.",
+                "Der Datenverkehr wird über Cloudflare (Cloudflare, Inc., 101 Townsend St., "
+                "San Francisco, CA 94107, USA) geleitet. Cloudflare agiert dabei als "
+                "Reverse-Proxy und kann dabei technische Metadaten (IP-Adresse, Request-Header) "
+                "verarbeiten. Die eigentliche IP-Adresse des Servers wird dabei nicht öffentlich "
+                "exponiert. Weitere Informationen: https://www.cloudflare.com/privacypolicy/",
+            ),
+
+            block(
+                "4. Kontaktaufnahme per E-Mail",
+                "Wenn Sie uns per E-Mail kontaktieren, werden die von Ihnen übermittelten Daten "
+                "(E-Mail-Adresse, ggf. Name und Nachrichteninhalt) ausschließlich zur Bearbeitung "
+                "Ihrer Anfrage verwendet. Diese Daten werden nicht an Dritte weitergegeben und "
+                "nach Abschluss der Anfrage gelöscht, sofern keine gesetzlichen Aufbewahrungsfristen bestehen.",
+            ),
+
+            block(
+                "5. Ihre Rechte",
+                "Sie haben jederzeit das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16 DSGVO), "
+                "Löschung (Art. 17 DSGVO), Einschränkung der Verarbeitung (Art. 18 DSGVO) sowie "
+                "Datenübertragbarkeit (Art. 20 DSGVO).",
+                "Zur Ausübung Ihrer Rechte genügt eine E-Mail an kontakt@nepidesk.de. "
+                "Sie haben zudem das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren.",
+            ),
+
+            block(
+                "6. Externe Links",
+                "Diese Website enthält Links zu externen Websites (z. B. PyPI, GitHub, Cloudflare). "
+                "Für die Datenschutzpraktiken dieser externen Anbieter übernehmen wir keine Verantwortung.",
+            ),
+
+            block(
+                "7. Aktualität",
+                "Wir behalten uns vor, diese Datenschutzerklärung bei Bedarf anzupassen, "
+                "etwa bei technischen Änderungen der Website oder neuen gesetzlichen Anforderungen.",
+            ),
+
+            class_="legal-page section-block",
+        ),
+    ]
+    return _page_shell(
+        "Datenschutz", "Datenschutzerklärung — NepiDesk",
+        "", content, css_hash, js_hash,
+    )
 
 # ── aside fehlt im htmforge-Import ───────────────────────
 # Workaround: aside als generisches Element

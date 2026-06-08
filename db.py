@@ -38,11 +38,23 @@ def init_db():
                 created_at  TEXT    NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_nr    TEXT    NOT NULL UNIQUE,
+                customer    TEXT    NOT NULL,
+                product     TEXT    NOT NULL,
+                amount      REAL    NOT NULL,
+                status      TEXT    NOT NULL DEFAULT 'offen',
+                created_at  TEXT    NOT NULL
+            )
+        """)
         conn.commit()
 
-        # Seed nur wenn leer
         if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
             _seed(conn)
+        if conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0] == 0:
+            _seed_orders(conn)
 
 
 def _seed(conn: sqlite3.Connection):
@@ -127,4 +139,92 @@ def get_stats() -> dict:
             "inactive_users": total - active,
             "admins": admins,
             "api_keys": api_keys,
+        }
+    
+
+# ── Seed Orders ───────────────────────────────────────────────
+
+def _seed_orders(conn: sqlite3.Connection):
+    seed_orders = [
+        ("ORD-0001", "Mustermann GmbH",     "OrderWare Desktop Lizenz",  299.00, "abgeschlossen"),
+        ("ORD-0002", "Weber & Partner",      "OrderWare Desktop Lizenz",  299.00, "abgeschlossen"),
+        ("ORD-0003", "Schmidt Logistik",     "Support Paket 12 Monate",   599.00, "aktiv"),
+        ("ORD-0004", "Bauer Handels KG",     "OrderWare Desktop Lizenz",  299.00, "offen"),
+        ("ORD-0005", "Fischer IT GmbH",      "Custom Integration",       1200.00, "in_bearbeitung"),
+        ("ORD-0006", "Krause & Söhne",       "OrderWare Desktop Lizenz",  299.00, "offen"),
+        ("ORD-0007", "Hoffmann Consulting",  "Support Paket 12 Monate",   599.00, "abgeschlossen"),
+        ("ORD-0008", "Neumann Systems",      "Custom Integration",       1800.00, "in_bearbeitung"),
+        ("ORD-0009", "Zimmermann GmbH",      "OrderWare Desktop Lizenz",  299.00, "offen"),
+        ("ORD-0010", "Klein Distribution",   "Support Paket 6 Monate",    349.00, "aktiv"),
+    ]
+    base = datetime.now()
+    for i, (order_nr, customer, product, amount, status) in enumerate(seed_orders):
+        created = (base - timedelta(days=random.randint(1, 90))).strftime("%Y-%m-%d %H:%M:%S")
+        conn.execute(
+            "INSERT INTO orders (order_nr, customer, product, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (order_nr, customer, product, amount, status, created),
+        )
+    conn.commit()
+
+
+# ── Order Queries ──────────────────────────────────────────
+
+def get_orders(search: str = "", status: str = "") -> list[sqlite3.Row]:
+    with get_db() as conn:
+        query = "SELECT * FROM orders WHERE 1=1"
+        params = []
+        if search:
+            query += " AND (customer LIKE ? OR order_nr LIKE ? OR product LIKE ?)"
+            q = f"%{search}%"
+            params += [q, q, q]
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        query += " ORDER BY created_at DESC"
+        return conn.execute(query, params).fetchall()
+
+
+def get_order(order_id: int) -> sqlite3.Row | None:
+    with get_db() as conn:
+        return conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+
+
+def create_order(order_nr: str, customer: str, product: str, amount: float, status: str) -> int:
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO orders (order_nr, customer, product, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (order_nr, customer, product, amount, status, created_at),
+        )
+        conn.commit()
+        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def update_order_status(order_id: int, status: str):
+    with get_db() as conn:
+        conn.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
+        conn.commit()
+
+
+def delete_order(order_id: int):
+    with get_db() as conn:
+        conn.execute("DELETE FROM orders WHERE id=?", (order_id,))
+        conn.commit()
+
+
+def get_order_stats() -> dict:
+    with get_db() as conn:
+        total    = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+        offen    = conn.execute("SELECT COUNT(*) FROM orders WHERE status='offen'").fetchone()[0]
+        aktiv    = conn.execute("SELECT COUNT(*) FROM orders WHERE status='aktiv'").fetchone()[0]
+        in_bear  = conn.execute("SELECT COUNT(*) FROM orders WHERE status='in_bearbeitung'").fetchone()[0]
+        abgeschl = conn.execute("SELECT COUNT(*) FROM orders WHERE status='abgeschlossen'").fetchone()[0]
+        umsatz   = conn.execute("SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='abgeschlossen'").fetchone()[0]
+        return {
+            "total":          total,
+            "offen":          offen,
+            "aktiv":          aktiv,
+            "in_bearbeitung": in_bear,
+            "abgeschlossen":  abgeschl,
+            "umsatz":         umsatz,
         }
