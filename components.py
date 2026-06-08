@@ -17,7 +17,7 @@ from data import (
     HERO_CLAIM, HERO_SUB,
     CONCEPTS, CODE_EXAMPLES,
     INSTALL_CMD, PYPI_URL, GITHUB_URL,
-    DEMO_INTRO,
+    DEMO_INTRO, GITHUB_DEMO_URL,
     IMPRESSUM, DATENSCHUTZ,
 )
 
@@ -89,6 +89,7 @@ def build_demo_header(active: str = "dashboard"):
     nav_links = [
         ("dashboard", "/demo",         "Dashboard"),
         ("users",     "/demo/users",   "Users"),
+        ("orders",    "/demo/orders",  "Orders"),
     ]
     nav_items = [
         a(label, href=href,
@@ -111,6 +112,8 @@ def build_demo_header(active: str = "dashboard"):
             ),
             nav(*nav_items, class_="demo-nav"),
             a("← Zurück zur Doku", href="/", class_="back-to-docs"),
+            a("GitHub ↗", href=GITHUB_DEMO_URL, target="_blank", rel="noopener",
+            class_="back-to-docs"),
             class_="header-inner",
         ),
         class_="site-header demo-header",
@@ -138,6 +141,8 @@ def build_footer():
             a("PyPI ↗",    href=PYPI_URL,    target="_blank", rel="noopener", class_="footer-link"),
             span(" · ", class_="dim"),
             a("GitHub ↗",  href=GITHUB_URL,  target="_blank", rel="noopener", class_="footer-link"),
+            span(" · ", class_="dim"),
+            a("Demo Repo ↗", href=GITHUB_DEMO_URL, target="_blank", rel="noopener", class_="footer-link"),
             span(" · ", class_="dim"),
             a("nepidesk.de ↗", href="https://nepidesk.de", class_="footer-link"),
             class_="footer-right",
@@ -365,6 +370,14 @@ def _stat_card(label: str, value, color: str = "neon", index: int = 0):
         data_delay=str(index * 80),
     )
 
+def _stat_card_wide(label: str, value, color: str = "neon", index: int = 0):
+    return div(
+        span(str(value), class_=f"stat-value stat-value-sm color-{color}"),
+        span(label,      class_="stat-label"),
+        class_="stat-card stat-card-wide reveal",
+        data_delay=str(index * 80),
+    )
+
 
 def _flash(message: str, kind: str = "success"):
     """Inline-Flash-Nachricht (kein JS nötig)."""
@@ -403,13 +416,14 @@ def _select_field(lbl: str, name: str, options: list[tuple], current: str = ""):
 
 # ── Dashboard ─────────────────────────────────────────────
 
-def build_dashboard(stats: dict, css_hash="", js_hash=""):
+def build_dashboard(stats: dict, order_stats: dict, css_hash="", js_hash=""):
     stat_cards = [
-        _stat_card("Gesamt",   stats["total_users"],    "neon",  0),
-        _stat_card("Aktiv",    stats["active_users"],   "green", 1),
-        _stat_card("Inaktiv",  stats["inactive_users"], "amber", 2),
-        _stat_card("Admins",   stats["admins"],         "neon",  3),
-        _stat_card("API Keys", stats["api_keys"],       "neon",  4),
+        _stat_card("Users",     stats["total_users"],               "neon",     0),
+        _stat_card("Aktiv",     stats["active_users"],              "green",    1),
+        _stat_card("Admins",    stats["admins"],                    "neon",     2),
+        _stat_card("Orders",    order_stats["total"],               "amber",    3),
+        _stat_card("Umsatz",    f"{order_stats['umsatz']:.0f}€",    "green",    4),
+        _stat_card("Offen",     order_stats["offen"],               "amber",    5),
     ]
 
     # Code-Snippet das diese Seite erzeugt hat
@@ -440,7 +454,11 @@ def stat_card(label, value, color):
         section(
             div(
                 h1("Dashboard", class_="demo-page-title"),
-                a("+ Neuer User", href="/demo/users/new", class_="btn-primary"),
+                div(
+                    a("+ User", href="/demo/users/new", class_="btn-primary"),
+                    a("+ Order", href="/demo/orders/new", class_="btn-primary"),
+                    class_="dashboard-actions",
+                ),
                 class_="demo-page-head",
             ),
             div(*stat_cards, class_="stats-grid"),
@@ -452,6 +470,222 @@ def stat_card(label, value, color):
         "Dashboard — htmforge Admin Demo",
         "htmforge Admin Demo: Dashboard",
         build_demo_header("dashboard"),
+        content, css_hash, js_hash,
+    )
+
+# ── Order-Tabelle ─────────────────────────────────────────
+
+_ORDER_STATUS_OPTS = [
+    ("offen",           "Offen"),
+    ("in_bearbeitung",  "In Bearbeitung"),
+    ("aktiv",           "Aktiv"),
+    ("abgeschlossen",   "Abgeschlossen"),
+]
+
+_ORDER_STATUS_COLORS = {
+    "offen":          "amber",
+    "in_bearbeitung": "neon",
+    "aktiv":          "green",
+    "abgeschlossen":  "dim",
+}
+
+
+def _order_status_badge(status: str):
+    color = _ORDER_STATUS_COLORS.get(status, "dim")
+    label = dict(_ORDER_STATUS_OPTS).get(status, status)
+    return span(label, class_=f"badge order-status-{status} color-{color}")
+
+
+def build_order_table(orders, stats: dict, flash_msg="", flash_kind="success",
+                      search="", status_filter="", css_hash="", js_hash=""):
+    rows = [
+        tr(
+            td(o["order_nr"],                    class_="td td-mono"),
+            td(o["customer"],                    class_="td td-name"),
+            td(o["product"],                     class_="td"),
+            td(f"{o['amount']:.2f} €",           class_="td td-mono"),
+            td(_order_status_badge(o["status"]), class_="td"),
+            td(o["created_at"][:10],             class_="td td-mono td-dim"),
+            td(
+                form(
+                    select(
+                        *[
+                            option(label, value=val,
+                                   **({"selected": True} if val == o["status"] else {}))
+                            for val, label in _ORDER_STATUS_OPTS
+                        ],
+                        name="status", class_="tbl-select",
+                        onchange="this.form.submit()",
+                    ),
+                    action=f"/demo/orders/{o['id']}/status", method="POST",
+                ),
+                form(
+                    button("Delete", type="submit", class_="tbl-btn tbl-btn-danger",
+                           onclick="return confirm('Order " + o["order_nr"] + " wirklich löschen?')"),
+                    action=f"/demo/orders/{o['id']}/delete", method="POST",
+                ),
+                class_="td td-actions",
+            ),
+            class_="tbl-row",
+        )
+        for o in orders
+    ]
+
+    all_opts = [("", "Alle")] + _ORDER_STATUS_OPTS
+    filter_tabs = div(
+        *[
+            a(
+                label,
+                href="/demo/orders?status=" + val + ("&q=" + search if search else ""),
+                class_="filter-tab" + (" filter-tab-active" if status_filter == val else ""),
+            )
+            for val, label in all_opts
+        ],
+        class_="filter-tabs",
+    )
+
+    snippet = """\
+# Orders-Tabelle: Status-Wechsel direkt in der Zeile
+def order_row(order):
+    return tr(
+        td(order["order_nr"], class_="td td-mono"),
+        td(order["customer"], class_="td"),
+        td(f"{order['amount']:.2f} €", class_="td td-mono"),
+        td(
+            form(
+                select(
+                    *[option(l, value=v) for v, l in STATUS_OPTS],
+                    name="status",
+                    onchange="this.form.submit()",
+                    class_="tbl-select",
+                ),
+                action=f"/orders/{order['id']}/status",
+                method="POST",
+            ),
+            class_="td",
+        ),
+        class_="tbl-row",
+    )"""
+
+    # ── Hauptinhalt (linke Spalte im demo-page Grid) ──
+    main_content = section(
+        _flash(flash_msg, flash_kind),
+        div(
+            h1("Orders", class_="demo-page-title"),
+            a("+ Neue Order", href="/demo/orders/new", class_="btn-primary"),
+            class_="demo-page-head",
+        ),
+        # Stats horizontal
+        div(
+            _stat_card("Gesamt",         stats["total"],              "neon",  0),
+            _stat_card("Offen",          stats["offen"],              "amber", 1),
+            _stat_card("In Bearbeitung", stats["in_bearbeitung"],     "neon",  2),
+            _stat_card("Abgeschlossen",  stats["abgeschlossen"],      "green", 3),
+            _stat_card_wide("Umsatz",    f"{stats['umsatz']:.0f} €",  "green", 4),
+            class_="stats-grid stats-grid-5",
+        ),
+        # Filter-Tabs
+        filter_tabs,
+        # Suche
+        form(
+            input(
+                type="search", name="q", value=search,
+                placeholder="Order-Nr, Kunde oder Produkt...",
+                class_="search-input",
+            ),
+            input(type="hidden", name="status", value=status_filter),
+            button("Suchen", type="submit", class_="btn-secondary"),
+            action="/demo/orders", method="GET",
+            class_="search-form",
+        ),
+        # Tabelle
+        div(
+            table(
+                thead(tr(
+                    *[th(h, class_="th") for h in
+                      ["Order-Nr", "Kunde", "Produkt", "Betrag", "Status", "Erstellt", ""]],
+                )),
+                tbody(*rows),
+                class_="data-table",
+            ),
+            class_="table-wrapper",
+        ),
+        class_="demo-section-main",   # ← gleiche Klasse wie Dashboard
+    )
+
+    content = [
+        main_content,
+        _code_aside(snippet, "Status-Wechsel per Inline-Form — kein JS, nur HTML."),
+    ]
+    return _page(
+        "Orders — htmforge Admin Demo",
+        "htmforge Admin Demo: Order-Tabelle",
+        build_demo_header("orders"),
+        content, css_hash, js_hash,
+    )
+
+def build_order_form(order=None, error="", css_hash="", js_hash=""):
+    is_edit = order is not None
+    title_  = f"Order {order['order_nr']}" if is_edit else "Neue Order"
+    action  = f"/demo/orders/{order['id']}/edit" if is_edit else "/demo/orders/new"
+
+    snippet = """\
+# Order-Formular — Betrag mit float-Parsing
+def order_form(order=None):
+    return form(
+        _form_field("Order-Nr",  "order_nr"),
+        _form_field("Kunde",     "customer"),
+        _form_field("Produkt",   "product"),
+        _form_field("Betrag",    "amount",
+                    type_="text",
+                    placeholder="299.00"),
+        _select_field("Status", "status",
+                      STATUS_OPTS),
+        button("Speichern", type="submit",
+               class_="btn-primary"),
+        action=action, method="POST",
+        class_="admin-form",
+    )"""
+
+    content = [
+        section(
+            div(
+                a("← Zurück", href="/demo/orders", class_="back-link"),
+                class_="demo-back",
+            ),
+            h1(title_, class_="demo-page-title"),
+            _flash(error, "error") if error else span(""),
+            form(
+                _form_field("Order-Nr",  "order_nr",
+                            value=order["order_nr"] if order else "",
+                            placeholder="ORD-0042"),
+                _form_field("Kunde",     "customer",
+                            value=order["customer"] if order else "",
+                            placeholder="Mustermann GmbH"),
+                _form_field("Produkt",   "product",
+                            value=order["product"] if order else "",
+                            placeholder="Lizenz / Support / ..."),
+                _form_field("Betrag (€)", "amount",
+                            value=str(order["amount"]) if order else "",
+                            placeholder="299.00", required=False),
+                _select_field("Status", "status", _ORDER_STATUS_OPTS,
+                              current=order["status"] if order else "offen"),
+                div(
+                    button("Speichern", type="submit", class_="btn-primary"),
+                    a("Abbrechen", href="/demo/orders", class_="btn-ghost"),
+                    class_="form-actions",
+                ),
+                action=action, method="POST",
+                class_="admin-form",
+            ),
+            class_="demo-section demo-section-narrow",
+        ),
+        _code_aside(snippet, "Formular für Orders — gleiche Bausteine wie User-Form."),
+    ]
+    return _page(
+        f"{title_} — htmforge Admin Demo",
+        "htmforge Admin Demo: Order-Formular",
+        build_demo_header("orders"),
         content, css_hash, js_hash,
     )
 
@@ -534,7 +768,7 @@ return table(thead(...), tbody(*rows))"""
                 ),
                 class_="table-wrapper",
             ),
-            class_="demo-section",
+            class_="demo-section-main",
         ),
         _code_aside(snippet, "Tabelle aus Python — jede Zeile eine Funktion, kein Template."),
     ]

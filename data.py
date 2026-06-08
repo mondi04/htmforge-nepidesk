@@ -114,6 +114,7 @@ output = "<!DOCTYPE html>\\n" + render(page)""",
 INSTALL_CMD = f"pip install htmforge=={HTMFORGE_VERSION}"
 PYPI_URL    = "https://pypi.org/project/htmforge/"
 GITHUB_URL  = "https://github.com/mondi04/htmforge"
+GITHUB_DEMO_URL  = "https://github.com/mondi04/htmforge-demo"
 
 # ── Demo-Beschreibung ─────────────────────────────────────
 DEMO_INTRO = {
